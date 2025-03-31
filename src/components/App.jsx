@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import Navbar from './Navbar';
 import { getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
+import Navbar from './Navbar';
+import RightPanel from './RightPanel';
 
 export default function App() {
   const [userData, setUserData] = useState([]);
-  const [selected, setSelected] = useState(false);
+  // getting the selected task from localStorage as initial value
+  const [currentSelectedTask, setCurrentSelectedTask] = useState(
+    JSON.parse(localStorage.getItem('current-user')).tasks.find(task => task.selected) || ''
+  );
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -25,11 +29,19 @@ export default function App() {
   }, []);
 
   return (
-    <Navbar
-      userData={userData}
-      setUserData={setUserData}
-      selected={selected}
-      setSelected={setSelected}
-    />
+    <main className='flex h-screen'>
+      <Navbar
+        userData={userData}
+        setUserData={setUserData}
+        currentSelectedTask={currentSelectedTask}
+        setCurrentSelectedTask={setCurrentSelectedTask}
+      />
+      <RightPanel
+        userData={userData}
+        setUserData={setUserData}
+        currentSelectedTask={currentSelectedTask}
+        setCurrentSelectedTask={setCurrentSelectedTask}
+      />
+    </main>
   );
 }

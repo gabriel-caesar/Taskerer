@@ -8,6 +8,7 @@ export default function DisplayErrorToUser({ error }) {
     'auth/weak-password': 'Weak Password.',
     'auth/invalid-credential': 'Invalid Account.',
     'invalid-argument': 'Invalid Input(s).',
+    'Duplicate task name.': 'There is already a task with this name.'
   };
 
   // Check if the error exists in the mapping and render it

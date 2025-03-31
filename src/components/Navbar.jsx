@@ -11,16 +11,11 @@ import ProfileDetails from './ProfileDetails';
 import Modal from './Modal';
 import AddTaskForm from './AddTaskForm';
 
-export default function Navbar({
-  userData,
-  setUserData,
-  selected,
-  setSelected,
-}) {
+export default function Navbar({ userData, setUserData, currentSelectedTask, setCurrentSelectedTask }) {
   const [openSignInForm, setOpenSignInForm] = useState(false);
   const [openAddTaskForm, setOpenTaskForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorCode, setErrorCode] = useState('');
+  const [errorCode, setErrorCode] = useState(''); // error state for incorrect inputs
   const [openProfileDetails, setOpenProfileDetails] = useState(false);
   // if there's a current user logged in, fetch that user from localStorage, otherwise, false!
   const [userLogged, setUserLogged] = useState(
@@ -32,7 +27,8 @@ export default function Navbar({
   const [currentUserLoggedIn, setCurrentUserLoggedIn] = useState(
     JSON.parse(localStorage.getItem('current-user')) || {}
   );
-  const [openModal, setOpenModal] = useState(false);
+  const [openModal, setOpenModal] = useState(false); // Log out Modal
+  const [openModalTask, setOpenModalTask] = useState(''); // Task deletion Modal
 
   // opens and closes the sign up/in form
   function handleSignUp() {
@@ -79,18 +75,28 @@ export default function Navbar({
       (task) => task.taskName !== selectedTask.taskName
     );
     updateUserData(filteredArray); // calling the function that will update tasks array
+    setOpenModalTask(false); // closes the task deletion modal
+    if (selectedTask.selected) setCurrentSelectedTask(''); // if the deleted task was seletected, unselect the deleted task
   }
 
-  function handleSelectedTask(selectedTask) {
-    // ensuring that every selected task get unselected
-    currentUserLoggedIn.tasks.map((task) => (task.selected = false));
-    // finding the desired task to enable the selected property
-    const task = currentUserLoggedIn.tasks.find(
-      (task) => task.taskName === selectedTask.taskName
-    );
-    task.selected = true; // enabling the property
-    updateUserData(currentUserLoggedIn.tasks); // updating the user's tasks array
-    setSelected(!selected); // highlighting the UI for the user experience
+  async function handleSelectedTask(selectedTask) {
+
+    // it works similar to forEach()
+    const updatedUserTasks = currentUserLoggedIn.tasks.map((task) => {
+      if (task === selectedTask) {
+        // if this is the clicked task, toggle its 'selected' state
+        return { ...task, selected: !task.selected };
+      } else {
+        // otherwise, make sure it's unselected
+        return { ...task, selected: false };
+      } // do this for every task
+    });
+
+    // find the task that is selected and update the state of (currentSelectedTask)
+    const thisTaskBeingSelected = updatedUserTasks.find(task => task.selected);
+    setCurrentSelectedTask(thisTaskBeingSelected);
+
+    updateUserData(updatedUserTasks); // updating the user's tasks array
   }
 
   // using useEffect() to change (openSignUpForm) as user is logged
@@ -109,7 +115,7 @@ export default function Navbar({
   }, [openAddTaskForm]);
 
   return (
-    <nav className='h-screen overflow-auto bg-blue-50 w-1/6 py-4' id='navbar'>
+    <nav className='h-screen overflow-auto bg-blue-50 w-2/10 py-4' id='navbar'>
       <section className='flex justify-between px-4 relative border-b-1 border-gray-300 pb-5'>
         <div
           className={`flex ${userLogged ? 'hover:cursor-pointer' : 'hover:cursor-not-allowed'} hover:opacity-75 transition-opacity`}
@@ -214,19 +220,25 @@ export default function Navbar({
                 currentUserLoggedIn.tasks.map((task) => (
                   <div key={task.taskName} className='relative'>
                     <div
-                      className={`bg-blue-100 rounded-sm px-2 py-1 flex justify-between items-center mb-2 hover:bg-blue-200 transition-colors hover:cursor-pointer ${selected && 'bg-blue-500'}`}
+                      className={`bg-blue-100 rounded-sm px-2 py-1 flex justify-between items-center mb-2 hover:bg-blue-200 transition-colors hover:cursor-pointer ${task.selected && 'bg-blue-500'}`}
                       onClick={() => handleSelectedTask(task)}
                     >
                       <h4>{task.taskName}</h4>
                     </div>
-                    <button
-                      onClick={() => {
-                        handleTaskDeletion(task);
-                      }}
-                      className='hover:cursor-pointer hover:text-red-500 transition-colors text-2xl text-blue-300 absolute right-1 top-1 z-10'
-                    >
-                      <MdCancel />
-                    </button>
+                    {openModalTask !== task.taskName ? (
+                      <button
+                        onClick={() => setOpenModalTask(task.taskName)}
+                        className='hover:cursor-pointer hover:text-red-500 transition-colors text-2xl text-blue-300 absolute right-1 top-1 z-10'
+                      >
+                        <MdCancel />
+                      </button>
+                    ) : (
+                      <Modal
+                        noFunction={() => setOpenModalTask(false)}
+                        yesFunction={() => handleTaskDeletion(task)}
+                        className={`absolute -top-1 right-2`}
+                      />
+                    )}
                   </div>
                 ))
               )}

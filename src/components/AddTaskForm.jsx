@@ -57,16 +57,31 @@ export default class AddTaskForm extends Component {
     this.props.setLoading(true); // loading starts
 
     try {
-      this.setState({
-        // updating the task object
+
+      // checks for name duplication
+      const duplicateName = currentUser.tasks.some(task => task.taskName === taskName);
+      if (duplicateName) {
+        this.props.setErrorCode('Duplicate task name.');
+        return;
+      }
+
+      // storing the new task object in a variable
+      const newTask = {
         taskName: taskName,
         dueDate: dueDate,
         desc: desc,
         selected: selected,
-      });
+        subTasks: [],
+      }
+
+      // updating the task in the state
+      this.setState(newTask);
+
+      // user reference
       const userRef = doc(db, 'users', this.props.currentUser.uid);
+
       await updateDoc(userRef, {
-        // inserting it within the user's tasks array
+        // inserting the new task within the user's tasks array
         tasks: [...currentUser.tasks, this.state],
       });
 
