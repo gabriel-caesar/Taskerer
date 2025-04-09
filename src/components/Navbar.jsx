@@ -11,7 +11,12 @@ import ProfileDetails from './ProfileDetails';
 import Modal from './Modal';
 import AddTaskForm from './AddTaskForm';
 
-export default function Navbar({ userData, setUserData, currentSelectedTask, setCurrentSelectedTask }) {
+export default function Navbar({
+  userData,
+  setUserData,
+  currentSelectedTask,
+  setCurrentSelectedTask,
+}) {
   const [openSignInForm, setOpenSignInForm] = useState(false);
   const [openAddTaskForm, setOpenTaskForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -80,7 +85,6 @@ export default function Navbar({ userData, setUserData, currentSelectedTask, set
   }
 
   async function handleSelectedTask(selectedTask) {
-
     // it works similar to forEach()
     const updatedUserTasks = currentUserLoggedIn.tasks.map((task) => {
       if (task === selectedTask) {
@@ -93,7 +97,9 @@ export default function Navbar({ userData, setUserData, currentSelectedTask, set
     });
 
     // find the task that is selected and update the state of (currentSelectedTask)
-    const thisTaskBeingSelected = updatedUserTasks.find(task => task.selected);
+    const thisTaskBeingSelected = updatedUserTasks.find(
+      (task) => task.selected
+    );
     setCurrentSelectedTask(thisTaskBeingSelected);
 
     updateUserData(updatedUserTasks); // updating the user's tasks array

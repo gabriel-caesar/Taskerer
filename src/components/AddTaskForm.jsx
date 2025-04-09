@@ -71,7 +71,6 @@ export default class AddTaskForm extends Component {
         dueDate: dueDate,
         desc: desc,
         selected: selected,
-        subTasks: [],
       }
 
       // updating the task in the state
