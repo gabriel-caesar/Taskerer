@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { MdCancel } from 'react-icons/md';
 import { SiLazyvim } from 'react-icons/si';
-import { fetchUserData } from './fetchUserData';
+import { FaTrash, FaArrowRight } from 'react-icons/fa';
+import { BsArrowRightShort } from 'react-icons/bs';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { userContext } from './App';
 import unknownImage from '../assets/unknown-user-image.png';
 import sleepingFace from '../assets/sleeping-face.png';
 import SignUpForm from './SignUpForm';
@@ -11,27 +13,25 @@ import ProfileDetails from './ProfileDetails';
 import Modal from './Modal';
 import AddTaskForm from './AddTaskForm';
 
-export default function Navbar({
-  userData,
-  setUserData,
-  currentSelectedTask,
-  setCurrentSelectedTask,
-}) {
+export default function Navbar() {
+  // reading the context passed by App.jsx
+  const {
+    dispatchUserData,
+    dispatchCurrentUser,
+    currentUserLoggedIn,
+    setCurrentSelectedTask,
+    setLoadingSelection,
+  } = useContext(userContext);
+
   const [openSignInForm, setOpenSignInForm] = useState(false);
   const [openAddTaskForm, setOpenTaskForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userLogged, setUserLogged] = useState(
+    JSON.parse(localStorage.getItem('current-user')) || ''
+  );
   const [errorCode, setErrorCode] = useState(''); // error state for incorrect inputs
   const [openProfileDetails, setOpenProfileDetails] = useState(false);
-  // if there's a current user logged in, fetch that user from localStorage, otherwise, false!
-  const [userLogged, setUserLogged] = useState(
-    JSON.parse(localStorage.getItem('current-user')) ? true : false
-  );
-  // track if user's signed
-  const [userSigned, setUserSigned] = useState(false);
-  // if there's a current user logged in, fetch that user from localStorage, otherwise, empty object!
-  const [currentUserLoggedIn, setCurrentUserLoggedIn] = useState(
-    JSON.parse(localStorage.getItem('current-user')) || {}
-  );
+  const [userSigned, setUserSigned] = useState(false); // track if user's signed
   const [openModal, setOpenModal] = useState(false); // Log out Modal
   const [openModalTask, setOpenModalTask] = useState(''); // Task deletion Modal
 
@@ -46,63 +46,88 @@ export default function Navbar({
     window.location.reload(); // reloads the page
   }
 
-  async function updateTheCurrentUser() {
-    await fetchUserData(setUserData); // even though I am updating userData here, this update doesn't get immediatly reflected in this function
-
-    setUserData((prevData) => {
-      // so I have to call setUserData again to work with the most up to date userData
-      const user = prevData.find(
-        (user) => user.email === currentUserLoggedIn.email
-      );
-      setCurrentUserLoggedIn(user);
-      localStorage.clear();
-      localStorage.setItem('current-user', JSON.stringify(user));
-      return prevData; // Preserve state
-    });
-  }
-
-  async function updateUserData(updatedTasksArray) {
-    try {
-      const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
-      await updateDoc(userRef, {
-        // updating the desired user data inside firestore
-        tasks: updatedTasksArray,
-      });
-
-      await updateTheCurrentUser(); // await for the current user state and local storage to be updated
-    } catch (error) {
-      throw new Error(`Couldn't update user data. ${error.message}`);
-    }
-  }
-
-  function handleTaskDeletion(selectedTask) {
-    const filteredArray = currentUserLoggedIn.tasks.filter(
+  async function handleTaskDeletion(selectedTask) {
+    const updatedTasks = currentUserLoggedIn.tasks.filter(
+      // filtering the old array
       (task) => task.taskName !== selectedTask.taskName
     );
-    updateUserData(filteredArray); // calling the function that will update tasks array
+
+    // find the updated user
+    const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
+
+    dispatchCurrentUser({
+      // update the currentUserLoggedIn
+      type: 'set_current_user',
+      payload: {
+        user: currentUser,
+      },
+    });
+
+    const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
+    await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
+
+    dispatchUserData({
+      // update the userData
+      type: 'update_tasks_array',
+      payload: {
+        uid: currentUserLoggedIn.uid,
+        tasks: updatedTasks,
+      },
+    });
+
     setOpenModalTask(false); // closes the task deletion modal
     if (selectedTask.selected) setCurrentSelectedTask(''); // if the deleted task was seletected, unselect the deleted task
   }
 
   async function handleSelectedTask(selectedTask) {
-    // it works similar to forEach()
-    const updatedUserTasks = currentUserLoggedIn.tasks.map((task) => {
-      if (task === selectedTask) {
-        // if this is the clicked task, toggle its 'selected' state
-        return { ...task, selected: !task.selected };
-      } else {
-        // otherwise, make sure it's unselected
-        return { ...task, selected: false };
-      } // do this for every task
-    });
+    setLoadingSelection(true); // loading between task selection
+    try {
+      // it works similar to forEach()
+      const updatedTasks = currentUserLoggedIn.tasks.map((task) => {
+        // toggling the selected prop of a task
+        if (task === selectedTask) {
+          // if this is the clicked task, toggle its 'selected' state
+          return { ...task, selected: !task.selected };
+        } else {
+          // otherwise, make sure it's unselected
+          return { ...task, selected: false };
+        } // do this for every task
+      });
 
-    // find the task that is selected and update the state of (currentSelectedTask)
-    const thisTaskBeingSelected = updatedUserTasks.find(
-      (task) => task.selected
-    );
-    setCurrentSelectedTask(thisTaskBeingSelected);
+      // find the updated user
+      const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
 
-    updateUserData(updatedUserTasks); // updating the user's tasks array
+      dispatchCurrentUser({
+        // update the currentUserLoggedIn
+        type: 'set_current_user',
+        payload: {
+          user: currentUser,
+        },
+      });
+
+      const thisTaskBeingSelected = updatedTasks.find(
+        // find the task that is selected
+        (task) => task.selected
+      );
+
+      setCurrentSelectedTask(thisTaskBeingSelected); // update the selected task
+
+      const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
+      await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
+
+      dispatchUserData({
+        // update the userData
+        type: 'update_tasks_array',
+        payload: {
+          uid: currentUserLoggedIn.uid,
+          tasks: updatedTasks,
+        },
+      });
+    } catch (error) {
+      throw new Error(`Couldn't select task. ${error.message}`);
+    } finally {
+      setLoadingSelection(false);
+    }
   }
 
   // using useEffect() to change (openSignUpForm) as user is logged
@@ -110,7 +135,7 @@ export default function Navbar({
     setOpenSignInForm(false);
     // if the account logged in doesnt have a username, pop the form right away
     if (userLogged) {
-      if (currentUserLoggedIn.username === '') {
+      if (currentUserLoggedIn.username === 'Empty') {
         setOpenProfileDetails(true); // popping the profile form
       }
     }
@@ -132,7 +157,7 @@ export default function Navbar({
           }
         >
           <img src={unknownImage} alt='user-image' className='w-9 z-20' />
-          <p className='bg-blue-200 text-gray-800 h-6 w-auto max-w-20 truncate justify-center flex rounded-sm pl-5 pr-3 absolute z-10 left-11 top-1 font-bold'>
+          <p className='bg-blue-200 text-gray-800 h-6 w-auto max-w-30 truncate justify-center flex rounded-sm pl-5 pr-3 absolute z-10 left-11 top-1 font-bold'>
             {userLogged ? currentUserLoggedIn.username : 'User'}
           </p>
           {userLogged && (
@@ -167,14 +192,13 @@ export default function Navbar({
             yesFunction={() => handleLogOut()}
             noFunction={() => setOpenModal(false)}
             text={`Are you sure you want to Log Out?`}
+            yesText={'Yes'}
+            noText={'No'}
             className={`bg-blue-200 p-2`}
           />
         )}
         {openSignInForm && (
           <SignUpForm
-            setCurrentUser={setCurrentUserLoggedIn}
-            userData={userData}
-            setUserData={setUserData}
             logged={userLogged}
             signed={userSigned}
             setLogged={setUserLogged}
@@ -182,14 +206,8 @@ export default function Navbar({
           />
         )}
 
-        {openProfileDetails && (
-          <ProfileDetails
-            setCurrentUser={setCurrentUserLoggedIn}
-            userData={userData}
-            currentUser={currentUserLoggedIn}
-            setUserData={setUserData}
-          />
-        )}
+        {openProfileDetails && <ProfileDetails />}
+
         {userLogged ? (
           <div className='p-2'>
             <button
@@ -198,20 +216,28 @@ export default function Navbar({
                 setOpenTaskForm(!openAddTaskForm);
               }}
             >
-              {openAddTaskForm ? 'Go Back' : 'Add Task'}
+              {openAddTaskForm ? 'Go Back' : 'Add Header Task'}
             </button>
 
             {openAddTaskForm && (
-              <AddTaskForm
-                currentUser={currentUserLoggedIn}
-                setCurrentUser={setCurrentUserLoggedIn}
-                setUserData={setUserData}
-                errorCode={errorCode}
-                setErrorCode={setErrorCode}
-                setOpenTaskForm={setOpenTaskForm}
-                loading={loading}
-                setLoading={setLoading}
-              />
+              <userContext.Consumer>
+                {({
+                  dispatchUserData,
+                  dispatchCurrentUser,
+                  currentUserLoggedIn,
+                }) => (
+                  <AddTaskForm
+                    currentUserLoggedIn={currentUserLoggedIn}
+                    dispatchUserData={dispatchUserData}
+                    dispatchCurrentUser={dispatchCurrentUser}
+                    errorCode={errorCode}
+                    setErrorCode={setErrorCode}
+                    setOpenTaskForm={setOpenTaskForm}
+                    loading={loading}
+                    setLoading={setLoading}
+                  />
+                )}
+              </userContext.Consumer>
             )}
 
             <div className='flex flex-col mt-4'>
@@ -240,8 +266,10 @@ export default function Navbar({
                       </button>
                     ) : (
                       <Modal
-                        noFunction={() => setOpenModalTask(false)}
+                        noFunction={() => setOpenModalTask('')}
                         yesFunction={() => handleTaskDeletion(task)}
+                        yesText={<FaTrash />}
+                        noText={<FaArrowRight />}
                         className={`absolute -top-1 right-2`}
                       />
                     )}

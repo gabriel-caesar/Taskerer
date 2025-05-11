@@ -12,7 +12,7 @@
   border-radius: 50%; /* Makes it a circle */
   animation: spin 1s linear infinite; /* Rotate continuously */
   margin-block: 25px;
-}
+}f
 
 #navbar {
   box-shadow: 0px 2px 10px 1px #b3d3f2;
@@ -22,6 +22,87 @@
   box-shadow: 0 3px 10px 1px #b3d3f2;
 }
 
+/* SCROLLBAR FROM SUBTASKS CONTAINER */
+
+#subtask-container::-webkit-scrollbar-track {
+  border-radius: 10px;
+}
+
+#subtask-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#subtask-container::-webkit-scrollbar-track {
+  background: #b3d3f2;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+#subtask-container::-webkit-scrollbar-thumb {
+  background-color: #398dfa;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+#subtask-container::-webkit-scrollbar-thumb:hover {
+  background-color: #398dfa9c;
+}
+
+/* SCROLLBAR FROM RIGHT PANEL CONTAINER */
+
+#right-panel-content::-webkit-scrollbar-track {
+  border-radius: 10px;
+}
+
+#right-panel-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+#right-panel-content::-webkit-scrollbar-track {
+  background: #b3d3f2;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+#right-panel-content::-webkit-scrollbar-thumb {
+  background-color: #398dfa;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+#right-panel-content::-webkit-scrollbar-thumb:hover {
+  background-color: #398dfa9c;
+}
+
+
+/* SCROLLBAR FROM TASK DESCRIPTION */
+
+#task-desc::-webkit-scrollbar-track {
+  border-radius: 10px;
+}
+
+#task-desc::-webkit-scrollbar {
+  width: 8px;
+}
+
+#task-desc::-webkit-scrollbar-track {
+  background: #b3d3f2;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+#task-desc::-webkit-scrollbar-thumb {
+  background-color: #398dfa;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+#task-desc::-webkit-scrollbar-thumb:hover {
+  background-color: #398dfa9c;
+}
 
 @keyframes spin {
 
@@ -58,5 +139,19 @@
 
   #input-subtask {
     margin-right: 0;
+  }
+
+  #subtasks-and-progress-container {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #subtasks-and-progress-container > div {
+    margin-bottom: 4rem;
+  }
+
+  #subtask-container {
+    width: 90%;
   }
 }

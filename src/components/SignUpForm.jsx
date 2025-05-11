@@ -1,24 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { fetchUserData } from './fetchUserData';
 import Loading from './Loading';
 import DisplayErrorToUser from './DisplayErrorToUser';
 import SuccessfullySignedUp from './SuccessfullySignedUp';
+import { userContext } from './App';
 
 export default function SignUpForm({
-  setCurrentUser,
-  userData,
-  setUserData,
-  logged,
   signed,
   setLogged,
   setSigned,
 }) {
+  // reading context from App.jsx
+  const {
+    userData,
+    dispatchUserData,
+    dispatchCurrentUser,
+  } = useContext(userContext);
+
   const [redTheInput, setRedTheInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorCode, setErrorCode] = useState('');
@@ -26,11 +29,6 @@ export default function SignUpForm({
     emailVal: '',
     passVal: '',
   });
-
-  // here we fetch the user's data from database so we can update the (userData) to send it to (Navbar.jsx)
-  useEffect(() => {
-    fetchUserData(setUserData);
-  }, [signed, logged]);
 
   function handleEmailInput(e) {
     setCredentials((prev) => ({
@@ -46,14 +44,15 @@ export default function SignUpForm({
     }));
   }
 
-  // authenticates if users exists with firestore
+  // checks the existence of the requested user within firestore
   async function tryLoggingIn(autho, email, password) {
     try {
-      const user = await signInWithEmailAndPassword(autho, email, password);
-      return user;
+      await signInWithEmailAndPassword(autho, email, password);
     } catch (error) {
       setErrorCode(error.code);
-      throw new Error(`Couldn't log in. ${error.message}`);
+      throw new Error(
+        `Couldn't log in, user not found within Firestore. ${error.message}`
+      );
     }
   }
 
@@ -61,14 +60,18 @@ export default function SignUpForm({
   async function logIn() {
     setLoading(true); // loading pops-up
     try {
+      // if this function doesn't crash, the user exists within the firestore, it's more like an if condition for existence check
       await tryLoggingIn(auth, credentials.emailVal, credentials.passVal);
 
-      // assigning the current user that logged in to the (currentUserLoggedIn) state
+      // finding the desired user from an updated userData
       const user = userData.find((user) => user.email === credentials.emailVal);
-      setCurrentUser(user);
 
-      // keeping track of the current user logged in between browser sessions
-      localStorage.setItem('current-user', JSON.stringify(user));
+      dispatchCurrentUser({ // updating the currentUserLoggedIn
+        type: 'set_current_user',
+        payload: {
+          user: user
+        }
+      });
 
       // stating that a user just logged in
       setLogged(true);
@@ -103,20 +106,12 @@ export default function SignUpForm({
   }
 
   // saving new user to firestore collections (handles the log in request)
-  async function saveUserToFirestore(user) {
+  async function saveUserToFirestore(newUserObject) {
     try {
       // doc(database, collection, documentId)
-      const userRef = doc(db, 'users', user.uid); // points where the user data would be stored
-      await setDoc(userRef, {
-        // stores the user data accordingly
-        email: user.email,
-        createdAt: serverTimestamp(), // date in standard format
-        tasks: [],
-        phoneNumber: '',
-        uid: user.uid,
-        username: '',
-        profilePhoto: '',
-      });
+      const userRef = doc(db, 'users', newUserObject.uid); // points where the user data would be stored
+      await setDoc(userRef, { ...newUserObject }); // creating a new document for the user in firestore
+
     } catch (error) {
       throw new Error(
         `Failed to store user data in Firestore. ${error.message}`
@@ -133,8 +128,23 @@ export default function SignUpForm({
         credentials.emailVal,
         credentials.passVal
       );
-      await saveUserToFirestore(signedUpUser);
-      // updating the userData state to be able to use it elsewhere
+
+      const newUser = {
+        email: signedUpUser.email,
+        createdAt: serverTimestamp(), // date in standard format
+        tasks: [],
+        phoneNumber: '',
+        uid: signedUpUser.uid,
+        username: 'Empty',
+      }
+
+      await saveUserToFirestore(newUser); // udpdating firestore
+
+      dispatchUserData({ // updating userData state
+        type: 'add_user',
+        payload: newUser
+      });
+
       setSigned(true); // this is used to update the UI based on sign-up status
 
       setErrorCode(''); // error handling
@@ -166,8 +176,9 @@ export default function SignUpForm({
           type='email'
           value={credentials.emailVal}
           onChange={(e) => handleEmailInput(e)}
-          onKeyDown={e => e.key === "Enter" && logIn()}
+          onKeyDown={(e) => e.key === 'Enter' && logIn()}
           disabled={loading ? true : false}
+          autoFocus
         />
       </label>
 
@@ -178,7 +189,7 @@ export default function SignUpForm({
           type='password'
           value={credentials.passVal}
           onChange={(e) => handlePassInput(e)}
-          onKeyDown={e => e.key === "Enter" && logIn()}
+          onKeyDown={(e) => e.key === 'Enter' && logIn()}
           disabled={loading ? true : false}
         />
       </label>

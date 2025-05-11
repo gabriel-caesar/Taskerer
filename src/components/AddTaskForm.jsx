@@ -2,7 +2,6 @@ import { Component } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import DisplayErrorToUser from './DisplayErrorToUser';
-import { fetchUserData } from './fetchUserData';
 import Loading from './Loading';
 
 export default class AddTaskForm extends Component {
@@ -10,9 +9,10 @@ export default class AddTaskForm extends Component {
     super(props);
 
     this.state = {
-      taskName: props.taskName,
-      dueDate: props.dueDate,
-      desc: props.desc,
+      taskName: '',
+      dueDate: '',
+      desc: '',
+      subTasks: [],
       selected: false,
     };
 
@@ -20,11 +20,12 @@ export default class AddTaskForm extends Component {
     this.handleDate = this.handleDate.bind(this);
     this.handleTaskName = this.handleTaskName.bind(this);
     this.handleDesc = this.handleDesc.bind(this);
-    this.updateTheCurrentUser = this.updateTheCurrentUser.bind(this);
   }
 
   handleTaskName(e) {
-    this.setState({ taskName: e.target.value });
+    if (e.target.value.length <= 20) {
+      this.setState({ taskName: e.target.value });
+    }
   }
 
   handleDate(e) {
@@ -35,31 +36,25 @@ export default class AddTaskForm extends Component {
     this.setState({ desc: e.target.value });
   }
 
-  async updateTheCurrentUser() {
-    await fetchUserData(this.props.setUserData); // even though I am updating userData here, this update doesn't get immediatly reflected in this function
-
-    this.props.setUserData((prevData) => {
-      // so I have to call setUserData again to work with the most up to date userData
-      const user = prevData.find(
-        (user) => user.email === this.props.currentUser.email
-      );
-      this.props.setCurrentUser(user);
-      localStorage.clear(); // clear the old data
-      localStorage.setItem('current-user', JSON.stringify(user)); // upload the new data
-      return prevData; // Preserve state
-    });
-  }
-
   // main function which adds the task
   async addTaskToUserObject() {
     const { taskName, dueDate, desc, selected } = this.state; // destructurig the state
-    const { currentUser } = this.props; // argument brought from parent component
-    this.props.setLoading(true); // loading starts
+    const {
+      currentUserLoggedIn,
+      dispatchCurrentUser,
+      dispatchUserData,
+      setLoading,
+      setOpenTaskForm,
+      setErrorCode,
+    } = this.props; // arguments brought from parent component
+
+    setLoading(true); // loading starts
 
     try {
-
       // checks for name duplication
-      const duplicateName = currentUser.tasks.some(task => task.taskName === taskName);
+      const duplicateName = currentUserLoggedIn.tasks.some(
+        (task) => task.taskName === taskName
+      );
       if (duplicateName) {
         this.props.setErrorCode('Duplicate task name.');
         return;
@@ -70,29 +65,45 @@ export default class AddTaskForm extends Component {
         taskName: taskName,
         dueDate: dueDate,
         desc: desc,
+        subTasks: [],
         selected: selected,
-      }
+      };
 
-      // updating the task in the state
-      this.setState(newTask);
+      this.setState(newTask); // updating the task in the state
 
-      // user reference
-      const userRef = doc(db, 'users', this.props.currentUser.uid);
+      const updatedTasks = [...currentUserLoggedIn.tasks, this.state]; // creating the updated tasks array
 
-      await updateDoc(userRef, {
-        // inserting the new task within the user's tasks array
-        tasks: [...currentUser.tasks, this.state],
+      // find the updated user
+      const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
+
+      dispatchCurrentUser({
+        // update the currentUserLoggedIn
+        type: 'set_current_user',
+        payload: {
+          user: currentUser,
+        },
       });
 
-      await this.updateTheCurrentUser(); // after updating the tasks array, this function updates the whole user because of that change
+      // user reference
+      const userRef = doc(db, 'users', currentUserLoggedIn.uid); // user reference from database
+      await updateDoc(userRef, { tasks: updatedTasks }); // inserting the new task within the user's tasks array
+
+      dispatchUserData({
+        // update the userData
+        type: 'update_tasks_array',
+        payload: {
+          uid: currentUserLoggedIn.uid,
+          tasks: updatedTasks,
+        },
+      });
 
       // closing the form after successfully adding the task
-      this.props.setOpenTaskForm(false);
+      setOpenTaskForm(false);
     } catch (error) {
-      this.props.setErrorCode(error.code);
+      setErrorCode(error.code);
       throw new Error(`Unable to save task in the cloud. ${error.message}`);
     } finally {
-      this.props.setLoading(false); // loading stops
+      setLoading(false); // loading stops
     }
   }
 
@@ -114,8 +125,11 @@ export default class AddTaskForm extends Component {
               <label className='task-name flex flex-col'>
                 Task Name
                 <input
+                  autoFocus
+                  placeholder='Study...'
                   type='text'
                   className={`text-sm rounded-sm ${this.props.errorCode === '' ? 'bg-blue-50' : 'bg-red-400'} shadow-sm p-1 px-2 mb-2`}
+                  value={this.state.taskName}
                   onChange={(e) => this.handleTaskName(e)}
                 />
               </label>
@@ -132,6 +146,7 @@ export default class AddTaskForm extends Component {
               <label className='desc flex flex-col'>
                 Description
                 <textarea
+                  placeholder='From 7-9pm...'
                   name='desc'
                   id='add-task-desc'
                   rows={6}
