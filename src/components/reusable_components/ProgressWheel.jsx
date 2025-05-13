@@ -1,12 +1,14 @@
-import { useContext, useState } from 'react';
-import { userContext } from './App';
+import { useContext } from 'react';
+import { userContext } from '../App';
 
 function ProgressWheel() {
   const { currentSelectedTask } = useContext(userContext);
-  const [radius, setRadius] = useState(110);
-  const [C, setC] = useState(2 * Math.PI * radius);
+  const radius = 110;
+  const C = 2 * Math.PI * radius; // total circunference
 
-  function progress() {
+  // calculates the circunference of the wheel
+  // based on how many completed/uncomplete sub-tasks there are
+  function progress() { 
     const completedSubTasks = currentSelectedTask.subTasks.filter(
       (subtask) => subtask.completed
     ).length;
@@ -17,14 +19,18 @@ function ProgressWheel() {
     return progressValue;
   }
 
-  function offset() {
-    return C - (progress() / 100) * C;
+  // calculates the offset progress of the wheel
+  function offset() { 
+    const result = C - (progress() / 100) * C;
+    return isNaN(result) ? 0 : result; 
   }
 
+  // if header task is 100% complete, give a different color
   function color() {
     return progress() === 100 ? '#94c4f4' : '#BFDCFF';
   }
 
+  // if there is no sub-tasks created, give a different font-size  
   function fontSize() {
     return currentSelectedTask.subTasks.length < 1 ? '1.5rem' : '2.5rem';
   }

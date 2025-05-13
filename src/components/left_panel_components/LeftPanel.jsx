@@ -2,33 +2,35 @@ import { useEffect, useState, useContext } from 'react';
 import { MdCancel } from 'react-icons/md';
 import { SiLazyvim } from 'react-icons/si';
 import { FaTrash, FaArrowRight } from 'react-icons/fa';
-import { BsArrowRightShort } from 'react-icons/bs';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { userContext } from './App';
-import unknownImage from '../assets/unknown-user-image.png';
-import sleepingFace from '../assets/sleeping-face.png';
+import { db } from '../../firebase';
+import { FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
+import { format, parseISO } from 'date-fns';
+import { userContext } from '../App';
+import unknownImage from '../../assets/unknown-user-image.png';
+import sleepingFace from '../../assets/sleeping-face.png';
 import SignUpForm from './SignUpForm';
 import ProfileDetails from './ProfileDetails';
-import Modal from './Modal';
+import Modal from '../reusable_components/Modal';
 import AddTaskForm from './AddTaskForm';
 
-export default function Navbar() {
+export default function LeftPanel() {
   // reading the context passed by App.jsx
   const {
+    userLogged,
+    setUserLogged,
     dispatchUserData,
     dispatchCurrentUser,
     currentUserLoggedIn,
     setCurrentSelectedTask,
     setLoadingSelection,
+    isPastDue,
+    isTaskConcluded,
   } = useContext(userContext);
 
   const [openSignInForm, setOpenSignInForm] = useState(false);
   const [openAddTaskForm, setOpenTaskForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [userLogged, setUserLogged] = useState(
-    JSON.parse(localStorage.getItem('current-user')) || ''
-  );
   const [errorCode, setErrorCode] = useState(''); // error state for incorrect inputs
   const [openProfileDetails, setOpenProfileDetails] = useState(false);
   const [userSigned, setUserSigned] = useState(false); // track if user's signed
@@ -49,7 +51,7 @@ export default function Navbar() {
   async function handleTaskDeletion(selectedTask) {
     const updatedTasks = currentUserLoggedIn.tasks.filter(
       // filtering the old array
-      (task) => task.taskName !== selectedTask.taskName
+      (task) => task.id !== selectedTask.id
     );
 
     // find the updated user
@@ -225,11 +227,13 @@ export default function Navbar() {
                   dispatchUserData,
                   dispatchCurrentUser,
                   currentUserLoggedIn,
+                  uniqueId,
                 }) => (
                   <AddTaskForm
                     currentUserLoggedIn={currentUserLoggedIn}
                     dispatchUserData={dispatchUserData}
                     dispatchCurrentUser={dispatchCurrentUser}
+                    uniqueId={uniqueId}
                     errorCode={errorCode}
                     setErrorCode={setErrorCode}
                     setOpenTaskForm={setOpenTaskForm}
@@ -250,16 +254,26 @@ export default function Navbar() {
                 </>
               ) : (
                 currentUserLoggedIn.tasks.map((task) => (
-                  <div key={task.taskName} className='relative'>
+                  <div key={task.id} className='relative'>
                     <div
                       className={`bg-blue-100 rounded-sm px-2 py-1 flex justify-between items-center mb-2 hover:bg-blue-200 transition-colors hover:cursor-pointer ${task.selected && 'bg-blue-500'}`}
                       onClick={() => handleSelectedTask(task)}
                     >
-                      <h4>{task.taskName}</h4>
+                      <h4 className='flex justify-center items-center'>
+                        {(isPastDue(
+                          format(parseISO(task.dueDate), 'MM/dd/yyyy')
+                        ) && !isTaskConcluded(task)) && (
+                          <FaExclamationCircle className='text-red-500 mr-2 font-bold' />
+                        )}
+                        {isTaskConcluded(task) && (
+                          <FaCheckCircle className='text-green-400 mr-2' />
+                        )}
+                        {task.taskName}
+                      </h4>
                     </div>
-                    {openModalTask !== task.taskName ? (
+                    {openModalTask !== task.id ? (
                       <button
-                        onClick={() => setOpenModalTask(task.taskName)}
+                        onClick={() => setOpenModalTask(task.id)}
                         className='hover:cursor-pointer hover:text-red-500 transition-colors text-2xl text-blue-300 absolute right-1 top-1 z-10'
                       >
                         <MdCancel />

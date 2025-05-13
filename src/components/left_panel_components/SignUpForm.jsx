@@ -4,11 +4,11 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
-import Loading from './Loading';
-import DisplayErrorToUser from './DisplayErrorToUser';
+import { auth, db } from '../../firebase';
+import Loading from '../reusable_components/Loading';
+import DisplayErrorToUser from '../reusable_components/DisplayErrorToUser';
 import SuccessfullySignedUp from './SuccessfullySignedUp';
-import { userContext } from './App';
+import { userContext } from '../App';
 
 export default function SignUpForm({
   signed,

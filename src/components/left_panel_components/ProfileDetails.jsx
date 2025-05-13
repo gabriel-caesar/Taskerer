@@ -1,7 +1,7 @@
 import { doc, updateDoc } from 'firebase/firestore';
 import { useContext, useState } from 'react';
-import { db } from '../firebase';
-import { userContext } from './App';
+import { db } from '../../firebase';
+import { userContext } from '../App';
 
 export default function ProfileDetails() {
   // reading context from App.jsx file

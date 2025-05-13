@@ -1,4 +1,4 @@
-import { beforeEach, describe, test } from 'vitest';
+import { beforeEach, describe, test, expect } from 'vitest';
 import { render, screen } from '@testing-library/react'; // (@) defines a scope of testing libraries which react is one of then
 import userEvent from '@testing-library/user-event';
 // import SignUpForm from '../components/SignUpForm';

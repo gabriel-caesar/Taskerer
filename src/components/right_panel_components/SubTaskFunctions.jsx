@@ -1,43 +1,28 @@
 import { IoMdArrowDropdown, IoMdArrowDropup } from 'react-icons/io';
 import { RiHammerFill } from 'react-icons/ri';
 import { useContext, useState } from 'react';
-import { userContext } from './App';
+import { userContext } from '../App';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 import { MdCancel } from 'react-icons/md';
 import { FaTrash, FaArrowRight } from 'react-icons/fa';
-import Modal from './Modal';
-import Loading from './Loading';
+import Modal from '../reusable_components/Modal';
+import Loading from '../reusable_components/Loading';
 
-function AddSubTask() {
+function SubTaskFunctions() {
   const {
     setCurrentSelectedTask,
     currentSelectedTask,
     currentUserLoggedIn,
     dispatchCurrentUser,
     dispatchUserData,
+    uniqueId,
   } = useContext(userContext);
 
   const [addingSubTask, setAddingSubTask] = useState(false); // opens the form to create a sub-task
   const [subTaskName, setSubTaskName] = useState(''); // sub-task name
   const [openModalTask, setOpenModalTask] = useState(''); // Sub-task deletion Modal
   const [loading, setLoading] = useState(false);
-
-  function uniqueId() {
-    // unique id generator
-    let id = [];
-    let counter = 0;
-    for (let i = 0; i < 20; i++) {
-      if (counter % 2 === 0) {
-        id.push(Math.floor(Math.random() * 10)); // generating numbers from 0 to 9
-        counter++;
-      } else {
-        id.push(String.fromCharCode(Math.floor(Math.random() * 26) + 97)); // generating letters from a to z
-        counter++;
-      }
-    }
-    return id.join(''); // turning the array into string
-  }
 
   async function updateTheRoot(updatedTasks, currentUser) {
     try {
@@ -73,6 +58,7 @@ function AddSubTask() {
   }
 
   async function createSubTask() {
+    // creates a sub-task
     setLoading(true);
     try {
       const newSubTask = {
@@ -84,7 +70,7 @@ function AddSubTask() {
 
       // storing the updated tasks array in a variable
       const updatedTasks = currentUserLoggedIn.tasks.map((task) =>
-        task.taskName === currentSelectedTask.taskName
+        task.id === currentSelectedTask.id
           ? {
               ...currentSelectedTask,
               subTasks: [...currentSelectedTask.subTasks, newSubTask],
@@ -119,7 +105,7 @@ function AddSubTask() {
 
       // storing the updated tasks array in a variable
       const updatedTasks = currentUserLoggedIn.tasks.map((task) =>
-        task.taskName === currentSelectedTask.taskName
+        task.id === currentSelectedTask.id
           ? {
               ...currentSelectedTask,
               subTasks: [...subTasksArray],
@@ -136,6 +122,61 @@ function AddSubTask() {
       throw new Error(
         `Couldn't mark the sub-task as completed. ${error.message}`
       );
+    }
+  }
+
+  async function handleDeletion(subtask) {
+    // deletes a sub-task
+    setLoading(true); // start loading
+    try {
+
+      // filtering the deleted data from the subTasks array
+      const subTasks = currentSelectedTask.subTasks.filter(st => st.id !== subtask.id);
+
+      const updatedTasks = currentUserLoggedIn.tasks.map(task =>
+          task.id === currentSelectedTask.id
+          ? {
+            ...currentSelectedTask,
+            subTasks: [ ...subTasks ]
+          }
+          : task
+      )
+
+      // find the updated user
+      const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
+
+      dispatchCurrentUser({
+        // update the currentUserLoggedIn
+        type: 'set_current_user',
+        payload: {
+          user: currentUser,
+        },
+      });
+
+      const thisTaskBeingSelected = updatedTasks.find(
+        // find the task that is selected
+        (task) => task.selected
+      );
+
+      setCurrentSelectedTask(thisTaskBeingSelected); // update the selected task
+
+      const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
+      await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
+
+      dispatchUserData({
+        // update the userData
+        type: 'update_tasks_array',
+        payload: {
+          uid: currentUserLoggedIn.uid,
+          tasks: updatedTasks,
+        },
+      });
+
+      setOpenModalTask(false); // closes the task deletion modal
+    } catch (error) {
+      throw new Error(`Couldn't delete the sub-task. ${error.message}`);
+    } finally {
+      setLoading(false); // loading stops
     }
   }
 
@@ -223,7 +264,7 @@ function AddSubTask() {
                         noFunction={() => {
                           setOpenModalTask('');
                         }}
-                        yesFunction={() => {}}
+                        yesFunction={() => handleDeletion(subtask)}
                         yesText={<FaTrash />}
                         noText={<FaArrowRight />}
                         className={'flex items-center'}
@@ -247,4 +288,4 @@ function AddSubTask() {
   );
 }
 
-export default AddSubTask;
+export default SubTaskFunctions;

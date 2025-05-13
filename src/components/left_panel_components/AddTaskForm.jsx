@@ -1,14 +1,15 @@
 import { Component } from 'react';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import DisplayErrorToUser from './DisplayErrorToUser';
-import Loading from './Loading';
+import DisplayErrorToUser from '../reusable_components/DisplayErrorToUser';
+import Loading from '../reusable_components/Loading';
 
 export default class AddTaskForm extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
+      id: this.props.uniqueId(),
       taskName: '',
       dueDate: '',
       desc: '',
@@ -38,7 +39,7 @@ export default class AddTaskForm extends Component {
 
   // main function which adds the task
   async addTaskToUserObject() {
-    const { taskName, dueDate, desc, selected } = this.state; // destructurig the state
+    const { taskName, dueDate, desc, selected, id } = this.state; // destructurig the state
     const {
       currentUserLoggedIn,
       dispatchCurrentUser,
@@ -56,7 +57,21 @@ export default class AddTaskForm extends Component {
         (task) => task.taskName === taskName
       );
       if (duplicateName) {
-        this.props.setErrorCode('Duplicate task name.');
+        setErrorCode('Duplicate task name.');
+        return;
+      }
+
+      // preventing empty input fields
+      const emptyInputFields = taskName === '' || dueDate === '' || desc === '';
+      if (emptyInputFields) {
+        setErrorCode('Found input fields empty.')
+        return;
+      }
+      
+      // preventing white-spaces
+      const whiteSpaces = /^\s+/.test(taskName) === true || /^\s+/.test(desc);
+      if (whiteSpaces) {
+        setErrorCode('Found white-spaces before any word.')
         return;
       }
 
@@ -67,6 +82,7 @@ export default class AddTaskForm extends Component {
         desc: desc,
         subTasks: [],
         selected: selected,
+        id: id,
       };
 
       this.setState(newTask); // updating the task in the state

@@ -9,6 +9,8 @@ export default function DisplayErrorToUser({ error }) {
     'auth/invalid-credential': 'Invalid Account.',
     'invalid-argument': 'Invalid Input(s).',
     'Duplicate task name.': 'There is already a task with this name.',
+    'Found input fields empty.': 'Please, fill all the inputs.',
+    'Found white-spaces before any word.': 'Please, erase any spaces before your inputs.'
   };
 
   // Check if the error exists in the mapping and render it

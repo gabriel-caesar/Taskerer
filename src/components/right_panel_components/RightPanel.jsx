@@ -1,14 +1,16 @@
 import { useEffect, useState, useContext } from 'react';
 import { GoPencil } from 'react-icons/go';
-import { format } from 'date-fns';
+import { BsExclamationCircle } from "react-icons/bs";
+import { FaCheckCircle } from 'react-icons/fa';
+import { format, parseISO } from 'date-fns';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { userContext } from './App';
-import ProgressWheel from './ProgressWheel';
-import Loading from './Loading';
-import taskererBg from '../assets/taskerer-bg.png';
-import DisplayErrorToUser from './DisplayErrorToUser';
-import AddSubTask from './AddSubTask';
+import { db } from '../../firebase';
+import { userContext } from '../App';
+import ProgressWheel from '../reusable_components/ProgressWheel';
+import Loading from '../reusable_components/Loading';
+import taskererBg from '../../assets/taskerer-bg.png';
+import DisplayErrorToUser from '../reusable_components/DisplayErrorToUser';
+import SubTaskFunctions from './SubTaskFunctions';
 
 export default function RightPanel() {
   // reading the context passed by App.jsx
@@ -18,8 +20,11 @@ export default function RightPanel() {
     dispatchUserData,
     currentSelectedTask,
     currentUserLoggedIn,
+    userLogged,
     loadingSelection,
     setCurrentSelectedTask,
+    isPastDue,
+    isTaskConcluded,
   } = useContext(userContext);
 
   const [errorCode, setErrorCode] = useState('');
@@ -33,6 +38,7 @@ export default function RightPanel() {
   const [newDesc, setNewDesc] = useState(
     currentSelectedTask && currentSelectedTask.desc
   );
+  const currentTaskDueDate = currentSelectedTask ? format(parseISO(currentSelectedTask.dueDate), 'MM/dd/yyyy') : '';
 
   // this function updates the 'to be edited' input fields
   // with the most up to date data from the current selected task
@@ -54,7 +60,7 @@ export default function RightPanel() {
     if (date === '') {
       return (date = '');
     } else {
-      return format(new Date(date), 'MM/dd/yyyy');
+      return format(new Date(parseISO(date)), 'MM/dd/yyyy');
     }
   }
 
@@ -73,13 +79,14 @@ export default function RightPanel() {
         taskName: newTaskName,
         dueDate: newDueDate,
         desc: newDesc,
-        subTasks: [ ...currentSelectedTask.subTasks ],
+        subTasks: [...currentSelectedTask.subTasks],
         selected: true,
+        id: currentSelectedTask.id,
       };
 
       // storing the updated tasks array in a variable
       const updatedTasks = currentUserLoggedIn.tasks.map((task) =>
-        task.taskName === currentSelectedTask.taskName
+        task.id === currentSelectedTask.id
           ? { ...editedTask }
           : task
       );
@@ -94,13 +101,6 @@ export default function RightPanel() {
           user: currentUser,
         },
       });
-
-      const thisTaskBeingSelected = updatedTasks.find(
-        // find the task that is selected
-        (task) => task.selected
-      );
-
-      setCurrentSelectedTask(thisTaskBeingSelected); // update the selected task
 
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // user reference from database
       await updateDoc(userRef, { tasks: updatedTasks }); // inserting the new task within the user's tasks array
@@ -117,7 +117,6 @@ export default function RightPanel() {
       setEdit(false); // closing the edit form after the change is complete
     } catch (error) {
       throw new Error(`Unable to edit task. ${error.message}`);
-    } finally {
     }
   }
 
@@ -129,6 +128,7 @@ export default function RightPanel() {
   // dispatch (in editTask()) updates userData, which triggers this effect
   // and then React re-renders the page, reflecting the
   // updated edited task immediately
+  // also works for when the task is edited
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem('current-user'));
 
@@ -138,8 +138,16 @@ export default function RightPanel() {
       payload: {
         user: currentUser,
       },
-    });
-  }, [userData]);
+    }, [userData]);
+   
+    // centralized userLogged to use here as a condition
+    // to make RightPanel re-render so when the user first
+    // logs in and has a selected task from last session
+    // it will display it immediately
+    if (currentUserLoggedIn !== null) {
+      setCurrentSelectedTask(currentUserLoggedIn.tasks.find(task => task.selected));
+    }
+  }, [userData, userLogged]);
 
   return (
     <div
@@ -179,7 +187,8 @@ export default function RightPanel() {
                   <DisplayErrorToUser error={errorCode} />
                 </>
               ) : (
-                <h1 className='text-4xl tracking-widest font-bold pb-2 flex justify-start items-center text-gray-800'>
+                <h1 className='text-4xl tracking-widest font-bold pb-2 flex justify-center items-center text-gray-800'>
+                  {isTaskConcluded(currentSelectedTask) && <FaCheckCircle className='text-green-400 mr-2'/>}
                   {currentSelectedTask.taskName}
                 </h1>
               )}
@@ -193,8 +202,9 @@ export default function RightPanel() {
                   onKeyDown={(e) => e.key === 'Enter' && editTask()}
                 />
               ) : (
-                <span className='bg-blue-200 rounded-sm h-10 font-bold flex justify-center items-center px-2 text-sm text-center'>
-                  Due in {handleDates(currentSelectedTask.dueDate)}
+                <span className={`${(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) ? 'bg-red-400' : 'bg-blue-200'} rounded-sm h-10 font-bold flex justify-center items-center px-2 text-sm text-center`}>
+                  {(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) && <BsExclamationCircle  className='mr-2 text-xl'/>}
+                  {(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) ? 'Past due' : 'Due in'} {handleDates(currentSelectedTask.dueDate)}
                 </span>
               )}
             </nav>
@@ -229,13 +239,16 @@ export default function RightPanel() {
               </button>
             )}
 
-            <div id='subtasks-and-progress-container' className='flex justify-between my-10'>
+            <div
+              id='subtasks-and-progress-container'
+              className='flex justify-between my-10'
+            >
               {/* SUB-TASK CONTAINER */}
               <div
                 id='subtask-container'
                 className='flex flex-col items-center bg-blue-200 rounded-sm w-3/6 h-70 border-2 border-blue-400 overflow-auto shadow-xl'
               >
-                <AddSubTask />
+                <SubTaskFunctions />
               </div>
 
               {/* PROGRESS WHEEL */}
