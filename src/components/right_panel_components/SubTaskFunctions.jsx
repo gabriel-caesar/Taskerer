@@ -1,6 +1,6 @@
 import { IoMdArrowDropdown, IoMdArrowDropup } from 'react-icons/io';
 import { RiHammerFill } from 'react-icons/ri';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { userContext } from '../App';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -15,7 +15,6 @@ function SubTaskFunctions() {
     currentSelectedTask,
     currentUserLoggedIn,
     dispatchCurrentUser,
-    dispatchUserData,
     uniqueId,
   } = useContext(userContext);
 
@@ -43,15 +42,6 @@ function SubTaskFunctions() {
 
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // user reference from database
       await updateDoc(userRef, { tasks: updatedTasks }); // inserting the new task within the user's tasks array
-
-      dispatchUserData({
-        // update the userData
-        type: 'update_tasks_array',
-        payload: {
-          uid: currentUserLoggedIn.uid,
-          tasks: updatedTasks,
-        },
-      });
     } catch (error) {
       throw new Error(`Couldn't update the root. ${error.message}`);
     }
@@ -81,11 +71,11 @@ function SubTaskFunctions() {
       // find the updated user
       const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
 
-      // updates the currentUserLoggedIn, Firebase and the userData
+      // update the currentUserLoggedIn and Firestore
       await updateTheRoot(updatedTasks, currentUser);
 
       setAddingSubTask(false); // close the addingSubTask form
-      setSubTaskName('');
+      setSubTaskName(''); // clears the sub-task name input
     } catch (error) {
       throw new Error(`Couldn't create a sub-task. ${error.message}`);
     } finally {
@@ -116,7 +106,7 @@ function SubTaskFunctions() {
       // find the updated user
       const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
 
-      // updates the currentUserLoggedIn, Firebase and the userData
+      // update the currentUserLoggedIn and Firestore
       await updateTheRoot(updatedTasks, currentUser);
     } catch (error) {
       throw new Error(
@@ -129,48 +119,25 @@ function SubTaskFunctions() {
     // deletes a sub-task
     setLoading(true); // start loading
     try {
-
       // filtering the deleted data from the subTasks array
-      const subTasks = currentSelectedTask.subTasks.filter(st => st.id !== subtask.id);
+      const subTasks = currentSelectedTask.subTasks.filter(
+        (st) => st.id !== subtask.id
+      );
 
-      const updatedTasks = currentUserLoggedIn.tasks.map(task =>
-          task.id === currentSelectedTask.id
+      const updatedTasks = currentUserLoggedIn.tasks.map((task) =>
+        task.id === currentSelectedTask.id
           ? {
-            ...currentSelectedTask,
-            subTasks: [ ...subTasks ]
-          }
+              ...currentSelectedTask,
+              subTasks: [...subTasks],
+            }
           : task
-      )
+      );
 
       // find the updated user
       const currentUser = { ...currentUserLoggedIn, tasks: updatedTasks };
 
-      dispatchCurrentUser({
-        // update the currentUserLoggedIn
-        type: 'set_current_user',
-        payload: {
-          user: currentUser,
-        },
-      });
-
-      const thisTaskBeingSelected = updatedTasks.find(
-        // find the task that is selected
-        (task) => task.selected
-      );
-
-      setCurrentSelectedTask(thisTaskBeingSelected); // update the selected task
-
-      const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
-      await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
-
-      dispatchUserData({
-        // update the userData
-        type: 'update_tasks_array',
-        payload: {
-          uid: currentUserLoggedIn.uid,
-          tasks: updatedTasks,
-        },
-      });
+      // update the currentUserLoggedIn and Firestore
+      await updateTheRoot(updatedTasks, currentUser);
 
       setOpenModalTask(false); // closes the task deletion modal
     } catch (error) {
@@ -179,6 +146,12 @@ function SubTaskFunctions() {
       setLoading(false); // loading stops
     }
   }
+
+  // if the user types something on the sub-task name field, but closes the tab
+  // without creating it, the draft is cleared
+  useEffect(() => {
+    setSubTaskName(''); // clears the sub-task name input
+  }, [addingSubTask]);
 
   return (
     <>

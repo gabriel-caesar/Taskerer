@@ -19,7 +19,6 @@ export default function LeftPanel() {
   const {
     userLogged,
     setUserLogged,
-    dispatchUserData,
     dispatchCurrentUser,
     currentUserLoggedIn,
     setCurrentSelectedTask,
@@ -68,15 +67,6 @@ export default function LeftPanel() {
     const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
     await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
 
-    dispatchUserData({
-      // update the userData
-      type: 'update_tasks_array',
-      payload: {
-        uid: currentUserLoggedIn.uid,
-        tasks: updatedTasks,
-      },
-    });
-
     setOpenModalTask(false); // closes the task deletion modal
     if (selectedTask.selected) setCurrentSelectedTask(''); // if the deleted task was seletected, unselect the deleted task
   }
@@ -117,14 +107,6 @@ export default function LeftPanel() {
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
       await updateDoc(userRef, { tasks: updatedTasks }); // sending the update to firebase
 
-      dispatchUserData({
-        // update the userData
-        type: 'update_tasks_array',
-        payload: {
-          uid: currentUserLoggedIn.uid,
-          tasks: updatedTasks,
-        },
-      });
     } catch (error) {
       throw new Error(`Couldn't select task. ${error.message}`);
     } finally {
@@ -143,6 +125,8 @@ export default function LeftPanel() {
     }
   }, [userLogged, currentUserLoggedIn]);
 
+  // prevent the error feedback to remain in the add task form
+  // when the user closes and opens it back again
   useEffect(() => {
     setErrorCode('');
   }, [openAddTaskForm]);
@@ -224,14 +208,12 @@ export default function LeftPanel() {
             {openAddTaskForm && (
               <userContext.Consumer>
                 {({
-                  dispatchUserData,
                   dispatchCurrentUser,
                   currentUserLoggedIn,
                   uniqueId,
                 }) => (
                   <AddTaskForm
                     currentUserLoggedIn={currentUserLoggedIn}
-                    dispatchUserData={dispatchUserData}
                     dispatchCurrentUser={dispatchCurrentUser}
                     uniqueId={uniqueId}
                     errorCode={errorCode}

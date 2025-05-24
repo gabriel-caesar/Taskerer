@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from 'react';
 import { GoPencil } from 'react-icons/go';
-import { BsExclamationCircle } from "react-icons/bs";
+import { BsExclamationCircle } from 'react-icons/bs';
 import { FaCheckCircle } from 'react-icons/fa';
 import { format, parseISO } from 'date-fns';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -15,9 +15,7 @@ import SubTaskFunctions from './SubTaskFunctions';
 export default function RightPanel() {
   // reading the context passed by App.jsx
   const {
-    userData,
     dispatchCurrentUser,
-    dispatchUserData,
     currentSelectedTask,
     currentUserLoggedIn,
     userLogged,
@@ -38,7 +36,9 @@ export default function RightPanel() {
   const [newDesc, setNewDesc] = useState(
     currentSelectedTask && currentSelectedTask.desc
   );
-  const currentTaskDueDate = currentSelectedTask ? format(parseISO(currentSelectedTask.dueDate), 'MM/dd/yyyy') : '';
+  const currentTaskDueDate = currentSelectedTask
+    ? format(parseISO(currentSelectedTask.dueDate), 'MM/dd/yyyy')
+    : '';
 
   // this function updates the 'to be edited' input fields
   // with the most up to date data from the current selected task
@@ -86,9 +86,7 @@ export default function RightPanel() {
 
       // storing the updated tasks array in a variable
       const updatedTasks = currentUserLoggedIn.tasks.map((task) =>
-        task.id === currentSelectedTask.id
-          ? { ...editedTask }
-          : task
+        task.id === currentSelectedTask.id ? { ...editedTask } : task
       );
 
       // find the updated user
@@ -105,15 +103,6 @@ export default function RightPanel() {
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // user reference from database
       await updateDoc(userRef, { tasks: updatedTasks }); // inserting the new task within the user's tasks array
 
-      dispatchUserData({
-        // update the userData
-        type: 'update_tasks_array',
-        payload: {
-          uid: currentUserLoggedIn.uid,
-          tasks: updatedTasks,
-        },
-      });
-
       setEdit(false); // closing the edit form after the change is complete
     } catch (error) {
       throw new Error(`Unable to edit task. ${error.message}`);
@@ -125,29 +114,19 @@ export default function RightPanel() {
     setEdit(false);
   }, [currentSelectedTask]);
 
-  // dispatch (in editTask()) updates userData, which triggers this effect
-  // and then React re-renders the page, reflecting the
-  // updated edited task immediately
-  // also works for when the task is edited
-  useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem('current-user'));
 
-    dispatchCurrentUser({
-      // update the currentUserLoggedIn
-      type: 'set_current_user',
-      payload: {
-        user: currentUser,
-      },
-    }, [userData]);
-   
+  useEffect(() => {
     // centralized userLogged to use here as a condition
     // to make RightPanel re-render so when the user first
     // logs in and has a selected task from last session
     // it will display it immediately
     if (currentUserLoggedIn !== null) {
-      setCurrentSelectedTask(currentUserLoggedIn.tasks.find(task => task.selected));
-    }
-  }, [userData, userLogged]);
+      setCurrentSelectedTask(
+        currentUserLoggedIn.tasks.find((task) => task.selected)
+      );
+    } 
+    // currentUserLoggedIn is a dependency to help the app re-render when a task is edited
+  }, [userLogged, currentUserLoggedIn]);
 
   return (
     <div
@@ -188,7 +167,9 @@ export default function RightPanel() {
                 </>
               ) : (
                 <h1 className='text-4xl tracking-widest font-bold pb-2 flex justify-center items-center text-gray-800'>
-                  {isTaskConcluded(currentSelectedTask) && <FaCheckCircle className='text-green-400 mr-2'/>}
+                  {isTaskConcluded(currentSelectedTask) && (
+                    <FaCheckCircle className='text-green-400 mr-2' />
+                  )}
                   {currentSelectedTask.taskName}
                 </h1>
               )}
@@ -202,9 +183,18 @@ export default function RightPanel() {
                   onKeyDown={(e) => e.key === 'Enter' && editTask()}
                 />
               ) : (
-                <span className={`${(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) ? 'bg-red-400' : 'bg-blue-200'} rounded-sm h-10 font-bold flex justify-center items-center px-2 text-sm text-center`}>
-                  {(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) && <BsExclamationCircle  className='mr-2 text-xl'/>}
-                  {(isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask)) ? 'Past due' : 'Due in'} {handleDates(currentSelectedTask.dueDate)}
+                <span
+                  className={`${isPastDue(currentTaskDueDate) && !isTaskConcluded(currentSelectedTask) ? 'bg-red-400' : 'bg-blue-200'} rounded-sm h-10 font-bold flex justify-center items-center px-2 text-sm text-center`}
+                >
+                  {isPastDue(currentTaskDueDate) &&
+                    !isTaskConcluded(currentSelectedTask) && (
+                      <BsExclamationCircle className='mr-2 text-xl' />
+                    )}
+                  {isPastDue(currentTaskDueDate) &&
+                  !isTaskConcluded(currentSelectedTask)
+                    ? 'Past due'
+                    : 'Due in'}{' '}
+                  {handleDates(currentSelectedTask.dueDate)}
                 </span>
               )}
             </nav>
@@ -218,7 +208,6 @@ export default function RightPanel() {
                   placeholder='New Task Description...'
                   value={newDesc}
                   onChange={(e) => editDescription(e)}
-                  onKeyDown={(e) => e.key === 'Enter' && editTask()}
                 ></textarea>
               </label>
             ) : (

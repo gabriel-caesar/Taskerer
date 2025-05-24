@@ -3,24 +3,16 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
 import Loading from '../reusable_components/Loading';
 import DisplayErrorToUser from '../reusable_components/DisplayErrorToUser';
 import SuccessfullySignedUp from './SuccessfullySignedUp';
 import { userContext } from '../App';
 
-export default function SignUpForm({
-  signed,
-  setLogged,
-  setSigned,
-}) {
+export default function SignUpForm({ signed, setLogged, setSigned }) {
   // reading context from App.jsx
-  const {
-    userData,
-    dispatchUserData,
-    dispatchCurrentUser,
-  } = useContext(userContext);
+  const { dispatchCurrentUser } = useContext(userContext);
 
   const [redTheInput, setRedTheInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,7 +39,12 @@ export default function SignUpForm({
   // checks the existence of the requested user within firestore
   async function tryLoggingIn(autho, email, password) {
     try {
-      await signInWithEmailAndPassword(autho, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        autho,
+        email,
+        password
+      );
+      return userCredential.user.uid;
     } catch (error) {
       setErrorCode(error.code);
       throw new Error(
@@ -61,16 +58,25 @@ export default function SignUpForm({
     setLoading(true); // loading pops-up
     try {
       // if this function doesn't crash, the user exists within the firestore, it's more like an if condition for existence check
-      await tryLoggingIn(auth, credentials.emailVal, credentials.passVal);
+      // then this userCredential will return an object with an accessible uid to get the user from firestore later
+      const userId = await tryLoggingIn(
+        auth,
+        credentials.emailVal,
+        credentials.passVal
+      );
 
-      // finding the desired user from an updated userData
-      const user = userData.find((user) => user.email === credentials.emailVal);
+      const userRef = doc(db, 'users', userId);
 
-      dispatchCurrentUser({ // updating the currentUserLoggedIn
+      const userSnap = await getDoc(userRef); // not the custom object yet
+
+      const userData = userSnap.data();
+
+      dispatchCurrentUser({
+        // updating the currentUserLoggedIn
         type: 'set_current_user',
         payload: {
-          user: user
-        }
+          user: userData,
+        },
       });
 
       // stating that a user just logged in
@@ -111,7 +117,6 @@ export default function SignUpForm({
       // doc(database, collection, documentId)
       const userRef = doc(db, 'users', newUserObject.uid); // points where the user data would be stored
       await setDoc(userRef, { ...newUserObject }); // creating a new document for the user in firestore
-
     } catch (error) {
       throw new Error(
         `Failed to store user data in Firestore. ${error.message}`
@@ -136,14 +141,9 @@ export default function SignUpForm({
         phoneNumber: '',
         uid: signedUpUser.uid,
         username: 'Empty',
-      }
+      };
 
       await saveUserToFirestore(newUser); // udpdating firestore
-
-      dispatchUserData({ // updating userData state
-        type: 'add_user',
-        payload: newUser
-      });
 
       setSigned(true); // this is used to update the UI based on sign-up status
 

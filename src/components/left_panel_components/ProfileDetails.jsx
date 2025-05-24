@@ -8,7 +8,6 @@ export default function ProfileDetails() {
   const {
     currentUserLoggedIn,
     dispatchCurrentUser,
-    dispatchUserData
   } = useContext(userContext);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -38,15 +37,6 @@ export default function ProfileDetails() {
 
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // getting the database reference
       await updateDoc(userRef, { ...updatedDetails }); // updating the firebase
-
-      // updating userData
-      dispatchUserData({
-        type: 'update_profile_details',
-        payload: {
-          username: usernameVal,
-          phoneNumber: mobilePhone
-        }
-      })
 
     } catch (error) {
       throw new Error(`Couldn't update user data. ${error.message}`);
@@ -78,6 +68,7 @@ export default function ProfileDetails() {
               type='text'
               value={usernameVal}
               onChange={(e) => handleUsernameVal(e)}
+              onKeyDown={e => e.key === 'Enter' && updateUserData()}
             />
           ) : (
             <p className='text-blue-600 ml-2 truncate'>{usernameVal}</p>
@@ -94,6 +85,7 @@ export default function ProfileDetails() {
               type='number'
               value={mobilePhone}
               onChange={(e) => handleMobilePhone(e)}
+              onKeyDown={e => e.key === 'Enter' && updateUserData()}
             />
           ) : (
             <p className='text-blue-600 ml-2 truncate'>{mobilePhone}</p>

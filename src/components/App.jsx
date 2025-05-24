@@ -1,7 +1,6 @@
-import { useEffect, useState, createContext, useReducer } from 'react';
+import { useState, createContext, useReducer } from 'react';
 import LeftPanel from './left_panel_components/LeftPanel';
 import RightPanel from './right_panel_components/RightPanel';
-import { fetchUserData } from '../fetchUserData';
 import { isBefore, format } from 'date-fns';
 
 // refactoring the logic to accept context
@@ -10,57 +9,26 @@ import { isBefore, format } from 'date-fns';
 // instead of diverging it through LeftPanel and RightPanel
 export const userContext = createContext(null);
 
-// reducer function
-function userDataReducer(state, action) {
-  switch (action.type) {
-    case 'initialize_data':
-      return action.payload; // this becomes the new userData (used on fetchUserData)
-
-    case 'update_tasks_array':
-      return state.map((user) =>
-        user.uid === action.payload.uid
-          ? { ...user, tasks: action.payload.tasks }
-          : user
-      );
-
-    case 'update_profile_details':
-      return state.map((user) =>
-        user.uid === action.payload.uid
-          ? {
-              ...user,
-              username: action.payload.username,
-              phoneNumber: action.payload.phoneNumber,
-            }
-          : user
-      );
-
-    case 'add_user':
-      return [...state, action.payload];
-
-    default:
-      return state;
-  }
-}
-
+// currentUserLoggedIn reducer function
 function currentUserReducer(state, action) {
   switch (action.type) {
     case 'set_current_user':
       localStorage.setItem('current-user', JSON.stringify(action.payload.user)); // setting the localStorage
       return action.payload.user; // assigning the updated user object to currentUserLoggedIn state
 
-    default:
+    default: // default case that returns the currentUserLoggedIn itself
       return state;
   }
 }
 
 export default function App() {
-  // using reducer to centralize userData, because this piece of information
+  // using reducer to centralize currentUserLoggedIn, because this piece of information
   // is shared and manipulated around major part of the program
-  const [userData, dispatchUserData] = useReducer(userDataReducer, []);
   const [currentUserLoggedIn, dispatchCurrentUser] = useReducer(
     currentUserReducer,
     JSON.parse(localStorage.getItem('current-user'))
   );
+
   // getting the selected task from localStorage as initial value
   const local = JSON.parse(localStorage.getItem('current-user')) || ''
   const [currentSelectedTask, setCurrentSelectedTask] = useState(
@@ -70,17 +38,6 @@ export default function App() {
   const [userLogged, setUserLogged] = useState(
     JSON.parse(localStorage.getItem('current-user')) || ''
   );
-
-  useEffect(() => {
-    // as fetchUserData() returns a promise, the code awaits it
-    // and only then the payload can read it
-    const dataReader = async () => {
-      const data_of_user = await fetchUserData();
-      dispatchUserData({ type: 'initialize_data', payload: data_of_user });
-    };
-
-    dataReader();
-  }, []);
 
   // checks if the task is past due or not
   function isPastDue(date) {
@@ -126,8 +83,6 @@ export default function App() {
     <main className='flex h-screen'>
       <userContext.Provider
         value={{
-          userData,
-          dispatchUserData,
           currentUserLoggedIn,
           dispatchCurrentUser,
           currentSelectedTask,

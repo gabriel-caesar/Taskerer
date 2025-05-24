@@ -43,7 +43,6 @@ export default class AddTaskForm extends Component {
     const {
       currentUserLoggedIn,
       dispatchCurrentUser,
-      dispatchUserData,
       setLoading,
       setOpenTaskForm,
       setErrorCode,
@@ -103,15 +102,6 @@ export default class AddTaskForm extends Component {
       // user reference
       const userRef = doc(db, 'users', currentUserLoggedIn.uid); // user reference from database
       await updateDoc(userRef, { tasks: updatedTasks }); // inserting the new task within the user's tasks array
-
-      dispatchUserData({
-        // update the userData
-        type: 'update_tasks_array',
-        payload: {
-          uid: currentUserLoggedIn.uid,
-          tasks: updatedTasks,
-        },
-      });
 
       // closing the form after successfully adding the task
       setOpenTaskForm(false);
